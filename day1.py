@@ -13,8 +13,8 @@ for line in lines:
     passes = abs(clicks) // 100
     r = clicks - passes * 100 * direction
     if dial == 0:
-        pass
-    elif 0 >= dial + r:
+        pass  # Don't count the start from 0 which was counted in previous rotation
+    elif dial + r <= 0:
         passes += 1
     elif dial + r >= 100:
         passes += 1
