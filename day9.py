@@ -1,32 +1,12 @@
-from collections import namedtuple
 import aoc
 from aoc import Point
+from collections import namedtuple
 from itertools import combinations
 
-class Rect(namedtuple("Rect", "left top right bottom")):
+class Rect(namedtuple("Rect", "left bottom right top")):
     @property
     def size(self):
-        return (self.right - self.left + 1) * (self.bottom - self.top + 1)
-
-    def intersects(self, t1, t2):
-        if t1.x != t2.x:
-            left = min(t1.x, t2.x)
-            right = max(t1.x, t2.x)
-            y = t1.y
-            return (self.top <= y <= self.bottom) and (left <= self.left <= right or left <= self.right <= right or (left <= self.left and right >= self.right))
-        else:
-            top = min(t1.y, t2.y)
-            bottom = max(t1.y, t2.y)
-            x = t1.x
-            return (self.left <= x <= self.right) and (top <= self.top <= bottom or top <= self.bottom <= bottom or (top <= self.top and bottom >= self.bottom))
-
-    @property
-    def corners(self):
-        return (
-            Point(self.left, self.top),
-            Point(self.right, self.top),
-            Point(self.right, self.bottom),
-            Point(self.left, self.bottom))
+        return (self.right - self.left + 1) * (self.top - self.bottom + 1)
 
 # Parse tiles
 tiles = []
@@ -44,15 +24,44 @@ for t1, t2 in combinations(tiles, 2):
 part1 = max(rect.size for rect in rectangles)
 print(part1)
 
+# Compress grid space
+xs = sorted(set(tile.x for tile in tiles))
+ys = sorted(set(tile.y for tile in tiles))
+
+grid = {}
+compressed_tiles = set()
+for t1, t2 in zip(tiles, tiles[1:] + tiles[:1]):
+    t1 = Point(xs.index(t1.x), ys.index(t1.y))
+    t2 = Point(xs.index(t2.x), ys.index(t2.y))
+    compressed_tiles.add(t1)
+    for x in range(min(t1.x, t2.x), max(t1.x, t2.x) + 1):
+        for y in range(min(t1.y, t2.y), max(t1.y, t2.y) + 1):
+            grid[Point(x, y)] = 'X'
+
+# Flood fill the area outside the tile loop
+todo = [Point(-1, -1)]  # Use 1 out of bound to prevent cutoff by tiles at border
+while todo:
+    pos = todo.pop()
+
+    # Remain in bounds of grid and check if tile not already known
+    if pos in grid or not (-1 <= pos.x <= len(xs) and -1 <= pos.y <= len(ys)):
+        continue
+
+    grid[pos] = '.'
+
+    for dir in ((1, 0), (0, 1), (-1, 0), (0, -1)):
+        todo.append(pos + Point(*dir))
+
 # Part 2 - Find maximum rectangle fully enclosed by path between tiles
-rectangles = sorted(rectangles, key=lambda r: r.size, reverse=True)
-for rect in rectangles:
-    lines = zip(tiles, tiles[1:] + tiles[:1])
-    for t1, t2 in lines:
-        # Check for intersection, but exclude the lines creating the corners
-        if rect.intersects(t1, t2) and not (t1 in rect.corners or t2 in rect.corners):
-            break
-    else:
-        part2 = rect.size
-        print(part2)
+for rect in sorted(rectangles, reverse=True, key=lambda r: r.size):
+    rect_compressed = Rect(xs.index(rect.left), ys.index(rect.bottom), xs.index(rect.right), ys.index(rect.top))
+    # Check all rectangle tiles not being outside the loop
+    if all(grid.get(Point(x, y)) != '.'
+           for x in range(rect_compressed.left, rect_compressed.right + 1)
+           for y in range(rect_compressed.bottom, rect_compressed.top + 1)):
         break
+else:
+    assert False, "No valid rectangle found"
+
+part2 = rect.size
+print(part2)
